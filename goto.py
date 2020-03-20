@@ -133,7 +133,7 @@ class Root(object):
     def to_dir(filepath, roots: List["Root"]) -> None:
 
         for root in roots:
-            root_filename = f"{root.name}.json"
+            root_filename = f"{root.root}.json"
             root_filepath = path.join(filepath, root_filename)
 
             with open(root_filepath, 'w') as root_file:
@@ -330,18 +330,15 @@ def get_path(shortcut, roots, root):
     return full_path
 
 
-def get_info_filepath(name_candidate, roots):
-
-    # might need to convert from a root nickname to a root name
-    root_name = roots[name_candidate]['name'] if name_candidate in roots else name_candidate
-
-    info_filepath = os.path.join(ROOTS_DIR, root_name + ".json")
-
-    return info_filepath
+def get_root_filepath(root, roots):
+    if root in roots:
+        root_obj = roots[root]
+        return path.join(ROOTS_DIR, f"{root_obj.root}.json")
+    return None
 
 
-def is_valid_info_file(filepath):
-    return os.path.exists(filepath)
+def root_file_exists(filepath):
+    return path.isfile(filepath)
 
 
 def edit_file(filepath):
@@ -495,13 +492,12 @@ def main():
 
     # open mode
     elif args.open:
-        info_filepath = get_info_filepath(args.open, roots)
-        valid_file = is_valid_info_file(info_filepath)
-        if valid_file:
-            edit_file(info_filepath)
-            print("Opening file " + info_filepath)
+        root_filepath = get_root_filepath(args.open, roots)
+        if root_file_exists(root_filepath):
+            edit_file(root_filepath)
+            print("Opening file " + root_filepath)
         else:
-            print("Error opening file: " + info_filepath)
+            print("Error opening file: " + root_filepath)
 
     # edit roots mode
     elif args.roots:
@@ -525,7 +521,7 @@ def main():
 
         new_root_filepath = os.path.join(ROOTS_DIR, name + ".json")
 
-        if not is_valid_info_file(new_root_filepath):
+        if not root_file_exists(new_root_filepath):
             write_blank_info_file(new_root_filepath)
             add_empty_root_to_roots_file(shortcut, name, args, roots)
             edit_file(new_root_filepath)
