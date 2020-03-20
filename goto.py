@@ -94,7 +94,16 @@ class Root(object):
 
     def __str__(self) -> str:
         return f"{self.__dict__.__str__()}"
-        
+       
+
+    def json(self) -> str:
+        return json.dumps(
+            self.shortcuts,
+            default=lambda o: o.__dict__,
+            sort_keys=True,
+            indent="\t"
+        )
+
 
     @staticmethod
     def from_file(filepath) -> "Root":
@@ -128,7 +137,7 @@ class Root(object):
             root_filepath = path.join(filepath, root_filename)
 
             with open(root_filepath, 'w') as root_file:
-                json.dump(root, root_file, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+                json.dump(root, root_file, default=lambda o: o.__dict__, sort_keys=True, indent="\t")
 
 
 ###############################################################################
@@ -241,24 +250,15 @@ def load_file(filepath):
 
 def print_information(print_arg, roots, configs):
 
-    printables = get_printables(roots)
-
-    print(f"{print_arg}")
-
     if print_arg == "all":
-        current_root = configs['current_root']
-        root_obj = get_info(roots[current_root]['name'])
-        return json.dumps(root_obj, sort_keys=True, indent=4)
+        root_obj = roots[configs['current_root']]
+        return root_obj.json()
     elif print_arg == "configs":
-        return json.dumps(configs, sort_keys=True, indent=4)
+        return json.dumps(configs, sort_keys=True, indent="\t")
     elif print_arg == "roots":
-        return json.dumps(roots, sort_keys=True, indent=4)
+        return json.dumps(list(roots.keys()), sort_keys=True, indent="\t")
     elif print_arg in roots:
-        root_obj = get_info(roots[print_arg]['name'])
-        return json.dumps(root_obj, sort_keys=True, indent=4)
-    elif print_arg in printables:
-        info = get_info(print_arg)
-        return json.dumps(info, sort_keys=True, indent=4)
+        return roots[print_arg].json()
     else:
         return "Invalid print arg: {}".format(print_arg)
 
@@ -289,8 +289,6 @@ def get_printables(roots):
     Roots should display as root names (ad, ot, etc...), while defaults
     should display as names (onx_defaults, etc...)
     '''
-
-    all_names_in_info_dir = {os.path.splitext(x)[0] for x in os.listdir(ROOTS_DIR)}
 
     all_root_names = {roots[root]['name'] for root in roots}
 
