@@ -167,10 +167,6 @@ def get_parser(parser_type):
                        help="see available shortcuts for a root",
                        action="store_true")
 
-    group.add_argument("-r", "--roots",
-                       help="open list of roots",
-                       action="store_true")
-
     group.add_argument("-c", "--configs", "--config",
                        help="open config JSON",
                        action="store_true")
@@ -498,11 +494,6 @@ def main():
             print("Opening file " + root_filepath)
         else:
             print("Error opening file: " + root_filepath)
-
-    # edit roots mode
-    elif args.roots:
-        print("Editing roots")
-        edit_file(ROOTS_FILEPATH)
 
     # edit configs mode
     elif args.configs:
