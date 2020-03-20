@@ -5,7 +5,8 @@
 goto is a tool that allows you to quickly move between directories.
 The basic workflow is as follows:
 
-1. Edit the ~/.config/goto/info JSON files to set up the shortcuts you want
+1. Use goto -n <root> to create a new root file
+2. Edit the new json root file to configure the root
 2. Use goto -s <root> to set the current root
 3. Use goto <shortcut> to cd to the shortcut in the current root dir
 
@@ -15,15 +16,12 @@ File structures
 
 setup/config.json: contains overall settings, e.g. the current root dir
 
-setup/roots.json: contains list of all available root directories. Has
-information on each including abbreviation, name, and path. Edit
-this file to include more root directories. Use the "defaults" field to
-add extra sets of shortcuts to this root directory. This is useful if
-you have a number of directories with similar file structure. For example,
-if you have multiple branches of the same repo checked out.
-
-info/onx_defaults.json: this file contains a variety of common shortcut
-paths. These can be accessed in any root dir.
+roots/: contains all available roots, one per file.  Has information
+on each including abbreviation and path. Add new files here to include
+more root directories. Use the "defaults" field to add extra sets of
+shortcuts to this root directory. This is useful if you have a number
+of directories with similar file structure. For example, if you have
+multiple branches of the same repo checked out.
 """
 
 ###############################################################################
