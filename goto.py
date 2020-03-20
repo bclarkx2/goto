@@ -70,16 +70,15 @@ class GenerousArgumentParser(argparse.ArgumentParser):
 
 class Root(object):
 
-    def __init__(self, root: str, name: str, path: str, defaults: List[str], shortcuts: Mapping[str, str]):
+    def __init__(self, root: str, path: str, defaults: List[str], shortcuts: Mapping[str, str]):
         self.root = root
-        self.name = name
         self.path = path
         self.defaults = defaults
         self.shortcuts = shortcuts
 
     @classmethod
-    def empty(cls, root="", name="") -> "Root":
-        return cls(root, name, "", [], dict())
+    def empty(cls, root="") -> "Root":
+        return cls(root, "", [], dict())
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -169,8 +168,8 @@ def get_parser(parser_type):
 
     group.add_argument("-n", "--new",
                        help="create new root",
-                       metavar=("SHORTCUT", "NAME"),
-                       nargs=2)
+                       metavar=("ROOT"),
+                       nargs=1)
 
     group.add_argument("--setup",
                        help="create default config files",
@@ -198,12 +197,12 @@ def parameters_from_args(args, configs):
 
 def set_current_root(new_root, roots, configs):
 
-    current_root=roots[configs["current_root"]].name
+    current_root=roots[configs["current_root"]].root
 
     if new_root in roots:
         configs["current_root"] = new_root
         save_configs(configs)
-        return f"New root set to {roots[new_root].name}"
+        return f"New root set to {roots[new_root].root}"
     else:
         return f"{new_root} not recognized, current root is stil {current_root}"
 
@@ -299,7 +298,6 @@ def write_config_files():
     roots = [
         Root(
             root="com",
-            name="common",
             path="",
             defaults=[],
             shortcuts={
@@ -309,7 +307,6 @@ def write_config_files():
         ),
         Root(
             root="goto",
-            name="goto",
             path="~/.config/goto",
             defaults=[],
             shortcuts={
@@ -425,15 +422,15 @@ def main():
 
     # create new root mode
     elif args.new:
-        root, name = args.new[0], args.new[1]
+        root = args.new[0]
         new_root_filepath = path.join(ROOTS_DIR, f"{root}.json")
 
         if not root_file_exists(new_root_filepath):
-            Root.empty(root, name).to_file(new_root_filepath)
+            Root.empty(root).to_file(new_root_filepath)
             edit_file(new_root_filepath)
-            print("Writing new root {}".format(name))
+            print("Writing new root {}".format(root))
         else:
-            print("ERROR! root {} already exists!".format(name))
+            print("ERROR! root {} already exists!".format(root))
 
     # complete mode
     elif args.complete:
@@ -455,7 +452,7 @@ def main():
 
         # if shortcut not resolved, print error and exit
         else:
-            print(f"Shortcut not found in {roots[root].name}")
+            print(f"Shortcut not found in {roots[root].root}")
             exit_code = 1
 
     # no mode selected, print help
