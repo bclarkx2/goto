@@ -36,6 +36,11 @@ import json
 import sys
 import subprocess
 
+from json import JSONEncoder
+from types import SimpleNamespace as Namespace
+from os import path
+
+from typing import Mapping
 
 ###############################################################################
 # Constants                                                                   #
@@ -47,7 +52,7 @@ SETUP_DIR = os.path.join(GOTO_DIR, "setup")
 CONFIG_FILEPATH = os.path.join(SETUP_DIR, "config.json")
 ROOTS_FILEPATH = os.path.join(SETUP_DIR, "roots.json")
 
-INFO_DIR = os.path.join(GOTO_DIR, "info")
+ROOTS_DIR = os.path.join(GOTO_DIR, "roots")
 
 PRINT_ARGS = ["configs", "roots"]
 
@@ -70,6 +75,49 @@ class GenerousArgumentParser(argparse.ArgumentParser):
         except ArgumentParserError:
             return super(GenerousArgumentParser, self).parse_args([])
 
+
+class Root(object):
+
+    def __init__(self, shortcut, name, path, defaults, bookmarks):
+        self.shortcut = shortcut
+        self.name = name
+        self.path = path
+        self.defaults = defaults
+        self.bookmarks = bookmarks
+
+    @staticmethod
+    def from_file(filepath) -> "Root":
+        try: 
+            with open(filepath) as f:
+                return json.load(f, object_hook=lambda d: Namespace(**d))
+        except:
+            return None
+
+    @staticmethod
+    def from_dir(filepath) -> Mapping[str, "Root"]:
+        files = [
+            path.join(filepath, f)
+            for f in os.listdir(filepath)
+            if path.isfile(path.join(filepath, f))
+        ]
+
+        roots = {
+                root.shortcut: root for root in 
+                    (Root.from_file(f) for f in files)
+                if root is not None and root.shortcut is not None
+        }
+
+        return roots
+
+
+class SelfEncoder(JSONEncoder):
+    def default(self, o):
+        return o.__dict__
+
+
+def selfDecoder(obj):
+    return Namespace(**d)
+    
 
 ###############################################################################
 # Helper functions                                                            #
@@ -137,7 +185,7 @@ def parameters_from_args(args, configs):
 
 def get_info(root_name):
 
-    info_filepath = os.path.join(INFO_DIR, root_name) + ".json"
+    info_filepath = os.path.join(ROOTS_DIR, root_name) + ".json"
 
     try:
         with open(info_filepath) as info_file:
@@ -229,7 +277,7 @@ def get_printables(roots):
     should display as names (onx_defaults, etc...)
     '''
 
-    all_names_in_info_dir = {os.path.splitext(x)[0] for x in os.listdir(INFO_DIR)}
+    all_names_in_info_dir = {os.path.splitext(x)[0] for x in os.listdir(ROOTS_DIR)}
 
     all_root_names = {roots[root]['name'] for root in roots}
 
@@ -279,7 +327,7 @@ def get_info_filepath(name_candidate, roots):
     # might need to convert from a root nickname to a root name
     root_name = roots[name_candidate]['name'] if name_candidate in roots else name_candidate
 
-    info_filepath = os.path.join(INFO_DIR, root_name + ".json")
+    info_filepath = os.path.join(ROOTS_DIR, root_name + ".json")
 
     return info_filepath
 
@@ -325,7 +373,7 @@ def write_config_files():
     # ensure all directories and files are present
     ensure_dir(GOTO_DIR)
     ensure_dir(SETUP_DIR)
-    ensure_dir(INFO_DIR)
+    ensure_dir(ROOTS_DIR)
 
     ensure_file(CONFIG_FILEPATH)
     ensure_file(ROOTS_FILEPATH)
@@ -355,7 +403,7 @@ def write_config_files():
         "root": "",
         "/": ""
     }
-    common_info_path = os.path.join(INFO_DIR, "common.json")
+    common_info_path = os.path.join(ROOTS_DIR, "common.json")
     with open(common_info_path, 'w') as common_info_file:
         json.dump(info, common_info_file, sort_keys=True, indent=4)
 
@@ -364,7 +412,7 @@ def write_config_files():
         "info": "info",
         "setup": "setup"
     }
-    goto_info_path = os.path.join(INFO_DIR, "goto.json")
+    goto_info_path = os.path.join(ROOTS_DIR, "goto.json")
     with open(goto_info_path, 'w') as goto_info_file:
         json.dump(info, goto_info_file, sort_keys=True, indent=4)
 
@@ -430,7 +478,10 @@ def main():
     # # # # # # # # # # # #
 
     configs = load_file(CONFIG_FILEPATH)
-    roots = load_file(ROOTS_FILEPATH)
+    roots = Root.from_dir(ROOTS_DIR)
+    print(f"roots: {roots}")
+    return
+
 
     #
     # Set op mode
@@ -478,7 +529,7 @@ def main():
 
         shortcut, name = args.new[0], args.new[1]
 
-        new_root_filepath = os.path.join(INFO_DIR, name + ".json")
+        new_root_filepath = os.path.join(ROOTS_DIR, name + ".json")
 
         if not is_valid_info_file(new_root_filepath):
             write_blank_info_file(new_root_filepath)
