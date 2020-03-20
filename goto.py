@@ -97,13 +97,16 @@ class Root(object):
        
 
     def json(self) -> str:
-        return json.dumps(
-            self.shortcuts,
-            default=lambda o: o.__dict__,
-            sort_keys=True,
-            indent="\t"
-        )
+        return json.dumps(self.shortcuts, default=lambda o: o.__dict__, sort_keys=True, indent="\t")
 
+    def all_json(self, roots) -> str:
+        return json.dumps(self.all_shortcuts(roots), default=lambda o: o.__dict__, sort_keys=True, indent="\t")
+
+    def all_shortcuts(self, roots: List["Root"]) -> Mapping[str, str]:
+        cuts = self.shortcuts
+        for default in self.defaults:
+            cuts.update(roots[default].shortcuts)
+        return cuts
 
     @staticmethod
     def from_file(filepath) -> "Root":
@@ -259,42 +262,16 @@ def print_information(print_arg, roots, configs):
         return "Invalid print arg: {}".format(print_arg)
 
 
-def all_information_dict(print_arg, roots, configs):
-    if print_arg == "all":
-        print_arg = configs['current_root']
-
-    root_obj = roots[print_arg]
-
-    shortcuts = get_info(root_obj['name'])
-
-    for default in root_obj['defaults']:
-        shortcuts.update(get_info(default))
-
-    return shortcuts
-
-
 def all_print_information(print_arg, roots, configs):
 
-    shortcuts = all_information_dict(print_arg, roots, configs)
-    return json.dumps(shortcuts, sort_keys=True, indent=4)
-
-
-def get_printables(roots):
-    '''list the things that can be printed
-
-    Roots should display as root names (ad, ot, etc...), while defaults
-    should display as names (onx_defaults, etc...)
-    '''
-
-    all_root_names = {roots[root]['name'] for root in roots}
-
-    all_non_root_names = all_names_in_info_dir - all_root_names
-
-    all_roots = set(roots.keys())
-
-    all_printables = all_non_root_names | all_roots
-
-    return list(all_printables)
+    if print_arg == "all":
+        return roots[configs["current_root"]].all_json(roots)
+    elif print_arg == "roots":
+        return json.dumps(list(roots.keys()), sort_keys=True, indent="\t")
+    elif print_arg in roots:
+        return roots[print_arg].all_json(roots)
+    else:
+        return f"Invalid print arg: {print_arg}"
 
 
 def get_shortcuts(shortcut, roots, root):
@@ -314,14 +291,14 @@ def get_shortcuts(shortcut, roots, root):
 
 def get_path(shortcut, roots, root):
 
-    shortcuts = get_shortcuts(shortcut, roots, root)
+    root_obj = roots[root]
+    shortcuts = root_obj.all_shortcuts(roots)
     
-    relative_path = set_relative_path(shortcut, shortcuts)
+    relative_path = shortcuts.get(shortcut, None)
 
     if relative_path is None:
         return None
 
-    root_obj = roots[root]
     full_path = path.join(root_obj.path, relative_path)
     return full_path
 
