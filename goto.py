@@ -36,21 +36,17 @@ import json
 import sys
 import subprocess
 
-from json import JSONEncoder
 from os import path
-
 from typing import Mapping, List
 
 ###############################################################################
 # Constants                                                                   #
 ###############################################################################
 
-GOTO_DIR = os.path.expanduser("~/.config/goto")
+GOTO_DIR = path.expanduser("~/.config/goto")
 
-CONFIG_FILEPATH = os.path.join(GOTO_DIR, "config.json")
-ROOTS_DIR = os.path.join(GOTO_DIR, "roots")
-
-PRINT_ARGS = ["configs", "roots"]
+CONFIG_FILEPATH = path.join(GOTO_DIR, "config.json")
+ROOTS_DIR = path.join(GOTO_DIR, "roots")
 
 
 ###############################################################################
@@ -200,28 +196,6 @@ def parameters_from_args(args, configs):
     return (root, shortcut)
 
 
-def get_info(root_name):
-
-    info_filepath = os.path.join(ROOTS_DIR, root_name) + ".json"
-
-    try:
-        with open(info_filepath) as info_file:
-            info = json.load(info_file)
-    except OSError:
-        info = {}
-
-    return info
-
-
-def set_relative_path(shortcut, shortcuts):
-
-    for shortcut_set in shortcuts:
-        if shortcut in shortcut_set:
-            return shortcut_set[shortcut]
-
-    return None
-
-
 def set_current_root(new_root, roots, configs):
 
     current_root=roots[configs["current_root"]].name
@@ -271,21 +245,6 @@ def all_print_information(print_arg, roots, configs):
         return f"Invalid print arg: {print_arg}"
 
 
-def get_shortcuts(shortcut, roots, root):
-
-    info_sources = []
-
-    # always add root info
-    root_obj = roots[root]
-    info_sources.append(root_obj.shortcuts)
-
-    # add any defaults this root is set up to use
-    for default_root in root_obj.defaults:
-        default_root_obj = roots[default_root]
-        info_sources.append(default_root_obj.bookmarks)
-
-    return info_sources
-
 def get_path(shortcut, roots, root):
 
     root_obj = roots[root]
@@ -314,25 +273,6 @@ def root_file_exists(filepath):
 def edit_file(filepath):
     editor = os.getenv('VISUAL')
     return subprocess.call([editor, filepath])
-
-
-def write_blank_info_file(new_root_filepath):
-    with open(new_root_filepath, 'w') as new_root_file:
-        json.dump({}, new_root_file, sort_keys=True, indent=4)
-
-
-def add_empty_root_to_roots_file(shortcut, name, args, roots):
-    roots[shortcut] = {
-        "path": args.first if args.first else "",
-        "name": name,
-        "defaults": []
-    }
-    with open(ROOTS_FILEPATH, 'w') as roots_file:
-        json.dump(roots, roots_file, sort_keys=True, indent=4)
-
-
-def filter_applicable_shortcuts(shortcuts, word_to_complete):
-    return [shortcut for shortcut in shortcuts if shortcut.startswith(word_to_complete)]
 
 
 def ensure_dir(directory):
@@ -411,6 +351,10 @@ def find_applicable_complete_options(args, roots, configs):
 
     shortcuts = list(options.keys())
     return filter_applicable_shortcuts(shortcuts, word_to_complete)
+
+
+def filter_applicable_shortcuts(shortcuts, word_to_complete):
+    return [shortcut for shortcut in shortcuts if shortcut.startswith(word_to_complete)]
 
 
 ###############################################################################
@@ -511,7 +455,7 @@ def main():
 
         # if shortcut not resolved, print error and exit
         else:
-            print("Shortcut not found in {}".format(roots[root]["name"]))
+            print(f"Shortcut not found in {roots[root].name}")
             exit_code = 1
 
     # no mode selected, print help
