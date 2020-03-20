@@ -297,15 +297,6 @@ def write_config_files():
     # write roots file
     roots = [
         Root(
-            root="com",
-            path="",
-            defaults=[],
-            shortcuts={
-                "root": "",
-                "/": "",
-            }
-        ),
-        Root(
             root="goto",
             path="~/.config/goto",
             defaults=[],
