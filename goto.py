@@ -87,10 +87,10 @@ class Root(object):
         return f"{self.__dict__.__str__()}"
 
     def json(self) -> str:
-        return json.dumps(self.shortcuts, default=lambda o: o.__dict__, sort_keys=True, indent="\t")
+        return json.dumps(self.shortcuts, **json_args(True))
 
     def all_json(self, roots) -> str:
-        return json.dumps(self.all_shortcuts(roots), default=lambda o: o.__dict__, sort_keys=True, indent="\t")
+        return json.dumps(self.all_shortcuts(roots), **json_args(True))
 
     def all_shortcuts(self, roots: List["Root"]) -> Mapping[str, str]:
         cuts = self.shortcuts
@@ -124,7 +124,7 @@ class Root(object):
 
     def to_file(self, filepath: str) -> None:
         with open(filepath, 'w') as f:
-                json.dump(self, f, default=lambda o: o.__dict__, sort_keys=True, indent="\t")
+                json.dump(self, f, **json_args(True))
  
     @staticmethod
     def to_dir(filepath, roots: List["Root"]) -> None:
@@ -138,6 +138,13 @@ class Root(object):
 ###############################################################################
 # Helper functions                                                            #
 ###############################################################################
+
+def json_args(use_dict: bool):
+    return {
+        "default": lambda o: o.__dict__ if use_dict else o,
+        "sort_keys": True,
+        "indent": "\t"
+    }
 
 def get_parser(parser_type):
 
@@ -209,7 +216,7 @@ def set_current_root(new_root, roots, configs):
 
 def save_configs(configs):
     with open(CONFIG_FILEPATH, 'w') as config_file:
-        json.dump(configs, config_file, sort_keys=True, indent=4)
+        json.dump(configs, config_file, **json_args(False))
 
 
 def load_file(filepath):
@@ -223,9 +230,9 @@ def print_information(print_arg, roots, configs):
         root_obj = roots[configs['current_root']]
         return root_obj.json()
     elif print_arg == "configs":
-        return json.dumps(configs, sort_keys=True, indent="\t")
+        return json.dumps(configs, **json_args(False))
     elif print_arg == "roots":
-        return json.dumps(list(roots.keys()), sort_keys=True, indent="\t")
+        return json.dumps(list(roots.keys()), **json_args(False))
     elif print_arg in roots:
         return roots[print_arg].json()
     else:
@@ -237,7 +244,7 @@ def all_print_information(print_arg, roots, configs):
     if print_arg == "all":
         return roots[configs["current_root"]].all_json(roots)
     elif print_arg == "roots":
-        return json.dumps(list(roots.keys()), sort_keys=True, indent="\t")
+        return json.dumps(list(roots.keys()), **json_args(False))
     elif print_arg in roots:
         return roots[print_arg].all_json(roots)
     else:
