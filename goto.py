@@ -219,13 +219,14 @@ def set_relative_path(shortcut, shortcuts):
 
 def set_current_root(new_root, roots, configs):
 
+    current_root=roots[configs["current_root"]].name
+
     if new_root in roots:
         configs["current_root"] = new_root
         save_configs(configs)
-        return "New root set to {}".format(roots[new_root]["name"])
+        return f"New root set to {roots[new_root].name}"
     else:
-        return "{new_root} not recognized, current root is stil {current_root}".format(new_root=new_root,
-                                                                                       current_root=roots[configs["current_root"]]["name"])
+        return f"{new_root} not recognized, current root is stil {current_root}"
 
 
 def save_configs(configs):
@@ -462,8 +463,7 @@ def main():
 
     # check setup mode
     if args.setup:
-        print("press 'y' to confirm config overwrite:\n")
-        sys.stdout.flush()
+        print("press 'y' to confirm config overwrite:\n", flush=True)
         ans = input()
         if ans == 'y':
             write_config_files()
