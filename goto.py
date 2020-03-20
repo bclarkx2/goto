@@ -35,7 +35,7 @@ import sys
 import subprocess
 
 from os import path
-from typing import Mapping, List
+from typing import Mapping, List, Any
 
 ###############################################################################
 # Constants                                                                   #
@@ -87,15 +87,6 @@ class Root(object):
     def json(self) -> str:
         return json.dumps(self.shortcuts, **json_args(True))
 
-    def all_json(self, roots) -> str:
-        return json.dumps(self.all_shortcuts(roots), **json_args(True))
-
-    def all_shortcuts(self, roots: List["Root"]) -> Mapping[str, str]:
-        cuts = self.shortcuts
-        for default in self.defaults:
-            cuts.update(roots[default].shortcuts)
-        return cuts
-
     @staticmethod
     def from_file(filepath) -> "Root":
         try: 
@@ -104,8 +95,71 @@ class Root(object):
         except:
             return None
 
+    def to_file(self, filepath: str) -> None:
+        with open(filepath, 'w') as f:
+                json.dump(self, f, **json_args(True))
+ 
+
+class Roots(object):
+
+    def __init__(self, roots: Mapping[str, Root]):
+        self._roots = roots
+
+    def __str__(self) -> str:
+        return self._roots.__str__()
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __getitem__(self, root):
+        return self._roots.get(root, None)
+
+    def __contains__(self, item):
+        return self[item] is not None
+
+    def roots(self) -> List[str]:
+        return list(self._roots.keys())
+
+    def keys(self) -> List[str]:
+        return self.roots()
+
+    def get(self, root, attr) -> Any:
+        root_obj = self[root]
+        if root_obj is None:
+            return None
+        return getattr(root_obj, attr, None)
+
+    def name(self, root):
+        return self.get(root, "name")
+
+    def path(self, root):
+        return self.get(root, "path")
+
+    def json(self, root) -> str:
+        jsoner = self.get(root, "json")
+        if jsoner:
+            return jsoner()
+
+    def all_json(self, root) -> str:
+        return json.dumps(self.all_shortcuts(root), **json_args(True))
+
+    def all_shortcuts(self, root) -> Mapping[str, str]:
+        root_obj = self[root]
+        if root_obj is None:
+            return {}
+
+        cuts = root_obj.shortcuts
+        for default in root_obj.defaults:
+            cuts.update(self.all_shortcuts(default))
+        return cuts
+
+    def root_filepath(self, root):
+        if self.get(root, "root"):
+            return path.join(ROOTS_DIR, f"{root}.json")
+        return None
+
     @staticmethod
-    def from_dir(filepath) -> Mapping[str, "Root"]:
+    def from_dir(filepath) -> "Roots":
         files = [
             path.join(filepath, f)
             for f in os.listdir(filepath)
@@ -118,20 +172,15 @@ class Root(object):
                 if root is not None and root.root is not None
         }
 
-        return roots
+        return Roots(roots)
 
-    def to_file(self, filepath: str) -> None:
-        with open(filepath, 'w') as f:
-                json.dump(self, f, **json_args(True))
- 
-    @staticmethod
-    def to_dir(filepath, roots: List["Root"]) -> None:
-
-        for root in roots:
-            root_filename = f"{root.root}.json"
+    def to_dir(self, filepath) -> None:
+        for root, root_obj in self._roots.items():
+            root_filename = f"{root}.json"
             root_filepath = path.join(filepath, root_filename)
-            root.to_file(root_filepath)
-           
+            root_obj.to_file(root_filepath)
+
+
 
 ###############################################################################
 # Helper functions                                                            #
@@ -202,12 +251,12 @@ def parameters_from_args(args, configs):
 
 def set_current_root(new_root, roots, configs):
 
-    current_root=roots[configs["current_root"]].root
+    current_root=roots.name(configs["current_root"])
 
     if new_root in roots:
         configs["current_root"] = new_root
         save_configs(configs)
-        return f"New root set to {roots[new_root].root}"
+        return f"New root set to {new_root}"
     else:
         return f"{new_root} not recognized, current root is stil {current_root}"
 
@@ -230,9 +279,9 @@ def print_information(print_arg, roots, configs):
     elif print_arg == "configs":
         return json.dumps(configs, **json_args(False))
     elif print_arg == "roots":
-        return json.dumps(list(roots.keys()), **json_args(False))
+        return json.dumps(roots.keys(), **json_args(False))
     elif print_arg in roots:
-        return roots[print_arg].json()
+        return roots.json(print_arg)
     else:
         return "Invalid print arg: {}".format(print_arg)
 
@@ -240,38 +289,25 @@ def print_information(print_arg, roots, configs):
 def all_print_information(print_arg, roots, configs):
 
     if print_arg == "all":
-        return roots[configs["current_root"]].all_json(roots)
+        return roots.all_json(configs["current_root"])
     elif print_arg == "roots":
-        return json.dumps(list(roots.keys()), **json_args(False))
+        return json.dumps(roots.keys(), **json_args(False))
     elif print_arg in roots:
-        return roots[print_arg].all_json(roots)
+        return roots.all_json(print_arg)
     else:
         return f"Invalid print arg: {print_arg}"
 
 
 def get_path(shortcut, roots, root):
 
-    root_obj = roots[root]
-    shortcuts = root_obj.all_shortcuts(roots)
-    
+    shortcuts = roots.all_shortcuts(root)
     relative_path = shortcuts.get(shortcut, None)
 
     if relative_path is None:
         return None
 
-    full_path = path.join(root_obj.path, relative_path)
+    full_path = path.join(roots.path(root), relative_path)
     return full_path
-
-
-def get_root_filepath(root, roots):
-    if root in roots:
-        root_obj = roots[root]
-        return path.join(ROOTS_DIR, f"{root_obj.root}.json")
-    return None
-
-
-def root_file_exists(filepath):
-    return path.isfile(filepath)
 
 
 def edit_file(filepath):
@@ -300,17 +336,17 @@ def write_config_files():
     save_configs(configs)
 
     # write roots file
-    roots = [
-        Root(
+    roots = Roots({
+        "goto": Root(
             root="goto",
             path="~/.config/goto",
             defaults=[],
             shortcuts={
                 "roots": "roots"
             }
-        ),
-    ]
-    Root.to_dir(ROOTS_DIR, roots)
+        )
+    })
+    roots.to_dir(ROOTS_DIR)
     
 
 def find_applicable_complete_options(args, roots, configs):
@@ -333,14 +369,14 @@ def find_applicable_complete_options(args, roots, configs):
             word_to_complete = complete_args.open if complete_args.open else ""
         elif len(cmd) == 2:
             if cmd[1] in roots:
-                options = roots[cmd[1]].all_shortcuts(roots)
+                options = roots.all_shortcuts(cmd[1])
                 word_to_complete = ""
             else:
-                options = roots[configs['current_root']].all_shortcuts(roots)
+                options = roots.all_shortcuts(configs['current_root'])
                 word_to_complete = cmd[1]
         elif len(cmd) == 3:
             if cmd[1] in roots:
-                options = roots[cmd[1]].all_shortcuts(roots)
+                options = roots.all_shortcuts(cmd[1])
                 word_to_complete = cmd[2]
 
     shortcuts = list(options.keys())
@@ -380,7 +416,7 @@ def main():
     # # # # # # # # # # # #
 
     configs = load_file(CONFIG_FILEPATH)
-    roots = Root.from_dir(ROOTS_DIR)
+    roots = Roots.from_dir(ROOTS_DIR)
 
     #
     # Set op mode
@@ -400,8 +436,8 @@ def main():
 
     # open mode
     elif args.open:
-        root_filepath = get_root_filepath(args.open, roots)
-        if root_file_exists(root_filepath):
+        root_filepath = roots.root_filepath(args.open)
+        if path.isfile(root_filepath):
             edit_file(root_filepath)
             print("Opening file " + root_filepath)
         else:
@@ -422,7 +458,7 @@ def main():
         root = args.new[0]
         new_root_filepath = path.join(ROOTS_DIR, f"{root}.json")
 
-        if not root_file_exists(new_root_filepath):
+        if not path.isfile(new_root_filepath):
             Root.empty(root).to_file(new_root_filepath)
             edit_file(new_root_filepath)
             print("Writing new root {}".format(root))
