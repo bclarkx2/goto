@@ -37,10 +37,9 @@ import sys
 import subprocess
 
 from json import JSONEncoder
-from types import SimpleNamespace as Namespace
 from os import path
 
-from typing import Mapping
+from typing import Mapping, List
 
 ###############################################################################
 # Constants                                                                   #
@@ -78,18 +77,24 @@ class GenerousArgumentParser(argparse.ArgumentParser):
 
 class Root(object):
 
-    def __init__(self, shortcut, name, path, defaults, bookmarks):
-        self.shortcut = shortcut
+    def __init__(
+            self,
+            root: str,
+            name: str,
+            path: str,
+            defaults: List[str],
+            shortcuts: List[str]):
+        self.root = root
         self.name = name
         self.path = path
         self.defaults = defaults
-        self.bookmarks = bookmarks
+        self.shortcuts = shortcuts
 
     @staticmethod
     def from_file(filepath) -> "Root":
         try: 
             with open(filepath) as f:
-                return json.load(f, object_hook=lambda d: Namespace(**d))
+                return Root(**json.load(f))
         except:
             return None
 
@@ -102,9 +107,9 @@ class Root(object):
         ]
 
         roots = {
-                root.shortcut: root for root in 
+                root.root: root for root in 
                     (Root.from_file(f) for f in files)
-                if root is not None and root.shortcut is not None
+                if root is not None and root.root is not None
         }
 
         return roots
@@ -114,10 +119,6 @@ class SelfEncoder(JSONEncoder):
     def default(self, o):
         return o.__dict__
 
-
-def selfDecoder(obj):
-    return Namespace(**d)
-    
 
 ###############################################################################
 # Helper functions                                                            #
@@ -196,11 +197,11 @@ def get_info(root_name):
     return info
 
 
-def set_relative_path(shortcut, info_list):
+def set_relative_path(shortcut, shortcuts):
 
-    for info in info_list:
-        if shortcut in info:
-            return info[shortcut]
+    for shortcut_set in shortcuts:
+        if shortcut in shortcut_set:
+            return shortcut_set[shortcut]
 
     return None
 
@@ -290,35 +291,32 @@ def get_printables(roots):
     return list(all_printables)
 
 
-def list_of_info_sources(shortcut, root_obj):
+def get_shortcuts(shortcut, roots, root):
 
     info_sources = []
 
     # always add root info
-    add_info_to_list(info_sources, root_obj['name'])
+    root_obj = roots[root]
+    info_sources.append(root_obj.shortcuts)
 
     # add any defaults this root is set up to use
-    for default_info_name in root_obj['defaults']:
-        add_info_to_list(info_sources, default_info_name)
+    for default_root in root_obj.defaults:
+        default_root_obj = roots[default_root]
+        info_sources.append(default_root_obj.bookmarks)
 
     return info_sources
 
+def get_path(shortcut, roots, root):
 
-def add_info_to_list(info_sources, info_name):
-    info = get_info(info_name)
-    info_sources.append(info)
-
-
-def get_path(shortcut, root_obj):
-
-    info_sources = list_of_info_sources(shortcut, root_obj)
-
-    relative_path = set_relative_path(shortcut, info_sources)
+    shortcuts = get_shortcuts(shortcut, roots, root)
+    
+    relative_path = set_relative_path(shortcut, shortcuts)
 
     if relative_path is None:
         return None
 
-    full_path = os.path.join(root_obj["path"], relative_path)
+    root_obj = roots[root]
+    full_path = path.join(root_obj.path, relative_path)
     return full_path
 
 
@@ -479,8 +477,6 @@ def main():
 
     configs = load_file(CONFIG_FILEPATH)
     roots = Root.from_dir(ROOTS_DIR)
-    print(f"roots: {roots}")
-    return
 
 
     #
@@ -552,7 +548,7 @@ def main():
         root, shortcut = parameters_from_args(args, configs)
 
         # expand shortcut into full length path
-        full_path = get_path(shortcut, roots[root])
+        full_path = get_path(shortcut, roots, root)
 
         # name of path to change to; print this so bash can cd to it
         if full_path:
