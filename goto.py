@@ -313,29 +313,30 @@ def find_applicable_complete_options(args, roots, configs):
     cmd = args.complete.split(' ')
     complete_args = get_parser(GenerousArgumentParser).parse_args(cmd)
 
+    options = {}
+    word_to_complete = ""
+
     if len(cmd) == 1:
         options = roots
         word_to_complete = ""
     elif len(cmd) > 1:
-        if cmd[1] in ['-s', '--set']:
+        if cmd[1] in ['-s', '--set'] and len(cmd) < 4:
             options = roots
             word_to_complete = complete_args.set if complete_args.set else ""
-        elif cmd[1] in ['-o', '--open']:
+        elif cmd[1] in ['-o', '--open'] and len(cmd) < 4:
             options = roots
             word_to_complete = complete_args.open if complete_args.open else ""
         elif len(cmd) == 2:
             if cmd[1] in roots:
-                options = all_information_dict(cmd[1], roots)
+                options = roots[cmd[1]].all_shortcuts(roots)
                 word_to_complete = ""
             else:
-                options = all_information_dict(configs['current_root'], roots)
+                options = roots[configs['current_root']].all_shortcuts(roots)
                 word_to_complete = cmd[1]
         elif len(cmd) == 3:
-            options = all_information_dict(cmd[1], roots)
-            word_to_complete = cmd[2]
-    else:
-        options = {}
-        word_to_complete = ""
+            if cmd[1] in roots:
+                options = roots[cmd[1]].all_shortcuts(roots)
+                word_to_complete = cmd[2]
 
     shortcuts = list(options.keys())
     return filter_applicable_shortcuts(shortcuts, word_to_complete)
