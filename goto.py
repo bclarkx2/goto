@@ -47,10 +47,7 @@ from typing import Mapping, List
 
 GOTO_DIR = os.path.expanduser("~/.config/goto")
 
-SETUP_DIR = os.path.join(GOTO_DIR, "setup")
-CONFIG_FILEPATH = os.path.join(SETUP_DIR, "config.json")
-ROOTS_FILEPATH = os.path.join(SETUP_DIR, "roots.json")
-
+CONFIG_FILEPATH = os.path.join(GOTO_DIR, "config.json")
 ROOTS_DIR = os.path.join(GOTO_DIR, "roots")
 
 PRINT_ARGS = ["configs", "roots"]
@@ -90,6 +87,15 @@ class Root(object):
         self.defaults = defaults
         self.shortcuts = shortcuts
 
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+
+    def __str__(self) -> str:
+        return f"{self.__dict__.__str__()}"
+        
+
     @staticmethod
     def from_file(filepath) -> "Root":
         try: 
@@ -114,10 +120,15 @@ class Root(object):
 
         return roots
 
+    @staticmethod
+    def to_dir(filepath, roots: List["Root"]) -> None:
 
-class SelfEncoder(JSONEncoder):
-    def default(self, o):
-        return o.__dict__
+        for root in roots:
+            root_filename = f"{root.name}.json"
+            root_filepath = path.join(filepath, root_filename)
+
+            with open(root_filepath, 'w') as root_file:
+                json.dump(root, root_file, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 
 ###############################################################################
@@ -370,50 +381,38 @@ def write_config_files():
 
     # ensure all directories and files are present
     ensure_dir(GOTO_DIR)
-    ensure_dir(SETUP_DIR)
     ensure_dir(ROOTS_DIR)
 
     ensure_file(CONFIG_FILEPATH)
-    ensure_file(ROOTS_FILEPATH)
 
     # write configs
     configs = {"current_root": "goto"}
     save_configs(configs)
 
     # write roots file
-    roots = {
-        "com": {
-            "defaults": [],
-            "name": "common",
-            "path": ""
-        },
-        "goto": {
-            "defaults": ["common"],
-            "name": "goto",
-            "path": "~/.config/goto"
-        }
-    }
-    with open(ROOTS_FILEPATH, 'w') as roots_file:
-        json.dump(roots, roots_file, sort_keys=True, indent=4)
-
-    # write common info file
-    info = {
-        "root": "",
-        "/": ""
-    }
-    common_info_path = os.path.join(ROOTS_DIR, "common.json")
-    with open(common_info_path, 'w') as common_info_file:
-        json.dump(info, common_info_file, sort_keys=True, indent=4)
-
-    # write goto info file
-    info = {
-        "info": "info",
-        "setup": "setup"
-    }
-    goto_info_path = os.path.join(ROOTS_DIR, "goto.json")
-    with open(goto_info_path, 'w') as goto_info_file:
-        json.dump(info, goto_info_file, sort_keys=True, indent=4)
-
+    roots = [
+        Root(
+            root="com",
+            name="common",
+            path="",
+            defaults=[],
+            shortcuts={
+                "root": "",
+                "/": "",
+            }
+        ),
+        Root(
+            root="goto",
+            name="goto",
+            path="~/.config/goto",
+            defaults=[],
+            shortcuts={
+                "roots": "roots"
+            }
+        ),
+    ]
+    Root.to_dir(ROOTS_DIR, roots)
+    
 
 def find_applicable_complete_options(args, roots, configs):
 
@@ -463,7 +462,9 @@ def main():
 
     # check setup mode
     if args.setup:
-        ans = input("press 'y' to confirm config overwrite:\n")
+        print("press 'y' to confirm config overwrite:\n")
+        sys.stdout.flush()
+        ans = input()
         if ans == 'y':
             write_config_files()
             print("wrote config files")
@@ -477,7 +478,6 @@ def main():
 
     configs = load_file(CONFIG_FILEPATH)
     roots = Root.from_dir(ROOTS_DIR)
-
 
     #
     # Set op mode
