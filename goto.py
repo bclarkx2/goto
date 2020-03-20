@@ -74,27 +74,22 @@ class GenerousArgumentParser(argparse.ArgumentParser):
 
 class Root(object):
 
-    def __init__(
-            self,
-            root: str,
-            name: str,
-            path: str,
-            defaults: List[str],
-            shortcuts: List[str]):
+    def __init__(self, root: str, name: str, path: str, defaults: List[str], shortcuts: Mapping[str, str]):
         self.root = root
         self.name = name
         self.path = path
         self.defaults = defaults
         self.shortcuts = shortcuts
 
+    @classmethod
+    def empty(cls, root="", name="") -> "Root":
+        return cls(root, name, "", [], dict())
 
     def __repr__(self) -> str:
         return self.__str__()
 
-
     def __str__(self) -> str:
         return f"{self.__dict__.__str__()}"
-       
 
     def json(self) -> str:
         return json.dumps(self.shortcuts, default=lambda o: o.__dict__, sort_keys=True, indent="\t")
@@ -132,16 +127,18 @@ class Root(object):
 
         return roots
 
+    def to_file(self, filepath: str) -> None:
+        with open(filepath, 'w') as f:
+                json.dump(self, f, default=lambda o: o.__dict__, sort_keys=True, indent="\t")
+ 
     @staticmethod
     def to_dir(filepath, roots: List["Root"]) -> None:
 
         for root in roots:
             root_filename = f"{root.root}.json"
             root_filepath = path.join(filepath, root_filename)
-
-            with open(root_filepath, 'w') as root_file:
-                json.dump(root, root_file, default=lambda o: o.__dict__, sort_keys=True, indent="\t")
-
+            root.to_file(root_filepath)
+           
 
 ###############################################################################
 # Helper functions                                                            #
@@ -484,16 +481,12 @@ def main():
 
     # create new root mode
     elif args.new:
-
-        shortcut, name = args.new[0], args.new[1]
-
-        new_root_filepath = os.path.join(ROOTS_DIR, name + ".json")
+        root, name = args.new[0], args.new[1]
+        new_root_filepath = path.join(ROOTS_DIR, f"{root}.json")
 
         if not root_file_exists(new_root_filepath):
-            write_blank_info_file(new_root_filepath)
-            add_empty_root_to_roots_file(shortcut, name, args, roots)
+            Root.empty(root, name).to_file(new_root_filepath)
             edit_file(new_root_filepath)
-            edit_file(ROOTS_FILEPATH)
             print("Writing new root {}".format(name))
         else:
             print("ERROR! root {} already exists!".format(name))
