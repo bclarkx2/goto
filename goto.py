@@ -402,14 +402,13 @@ def main():
 
     # check setup mode
     if args.setup:
-        print("press 'y' to confirm config overwrite:\n", flush=True)
-        ans = input()
-        if ans == 'y':
+        if path.isdir(GOTO_DIR):
+            print("aborting, configs already exist")
+            sys.exit(1)
+        else:
             write_config_files()
             print("wrote config files")
-        else:
-            print("aborting")
-        sys.exit(0)
+            sys.exit(0)
 
     #
     # Load configs
