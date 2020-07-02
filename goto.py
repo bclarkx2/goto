@@ -14,7 +14,7 @@ All shortcuts are given relative to root dir.
 
 File structures
 
-setup/config.json: contains overall settings, e.g. the current root dir
+config.json: contains overall settings, e.g. the current root dir
 
 roots/: contains all available roots, one per file.  Has information
 on each including abbreviation and path. Add new files here to include
@@ -22,6 +22,12 @@ more root directories. Use the "defaults" field to add extra sets of
 shortcuts to this root directory. This is useful if you have a number
 of directories with similar file structure. For example, if you have
 multiple branches of the same repo checked out.
+
+~/.config/goto-global contains global roots that are meant to be
+checked into VCS and maintained across machines.
+
+~/.config/goto-local contains local roots that are meant to be
+specific to this machine.
 """
 
 ###############################################################################
@@ -41,10 +47,12 @@ from typing import Mapping, List, Any
 # Constants                                                                   #
 ###############################################################################
 
-GOTO_DIR = path.expanduser("~/.config/goto")
+LOCAL_GOTO_DIR = path.expanduser("~/.config/goto-local")
+GLOBAL_GOTO_DIR = path.expanduser("~/.config/goto-global")
 
-CONFIG_FILEPATH = path.join(GOTO_DIR, "config.json")
-ROOTS_DIR = path.join(GOTO_DIR, "roots")
+CONFIG_FILEPATH = path.join(LOCAL_GOTO_DIR, "config.json")
+GLOBAL_ROOTS_DIR = path.join(GLOBAL_GOTO_DIR, "roots")
+LOCAL_ROOTS_DIR = path.join(LOCAL_GOTO_DIR, "roots")
 
 
 ###############################################################################
@@ -68,15 +76,29 @@ class GenerousArgumentParser(argparse.ArgumentParser):
 
 class Root(object):
 
-    def __init__(self, root: str, path: str, defaults: List[str], shortcuts: Mapping[str, str]):
+    def __init__(
+        self,
+        root: str,
+        path: str,
+        defaults: List[str],
+        shortcuts: Mapping[str, str],
+        **extra  # Ignore any extraneous keywords
+    ):
         self.root = root
         self.path = path
         self.defaults = defaults
         self.shortcuts = shortcuts
 
     @classmethod
-    def empty(cls, root="") -> "Root":
-        return cls(root, "", [], dict())
+    def empty(cls, root="": str, config_filepath: str) -> "Root":
+        root_obj = cls(
+            root=root,
+            path="",
+            default=[],
+            shortcuts=dict()
+        )
+        root_obj.config_filepath = config_filepath
+        return root_obj
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -88,17 +110,19 @@ class Root(object):
         return json.dumps(self.shortcuts, **json_args(True))
 
     @staticmethod
-    def from_file(filepath) -> "Root":
-        try: 
+    def read(filepath) -> "Root":
+        try:
             with open(filepath) as f:
-                return Root(**json.load(f))
-        except:
+                root = Root(**json.load(f))
+                root.config_filepath = filepath
+                return root
+        except Exception as e:
             return None
 
-    def to_file(self, filepath: str) -> None:
-        with open(filepath, 'w') as f:
+    def write(self) -> None:
+        with open(self.config_filepath, 'w') as f:
                 json.dump(self, f, **json_args(True))
- 
+
 
 class Roots(object):
 
@@ -154,32 +178,29 @@ class Roots(object):
         return cuts
 
     def root_filepath(self, root):
-        if self.get(root, "root"):
-            return path.join(ROOTS_DIR, f"{root}.json")
-        return None
+        return self.get(root, "config_filepath")
 
     @staticmethod
-    def from_dir(filepath) -> "Roots":
-        files = [
-            path.join(filepath, f)
-            for f in os.listdir(filepath)
-            if path.isfile(path.join(filepath, f))
-        ]
+    def read(*dirpaths: str) -> "Roots":
+        files = []
+        for dirpath in dirpaths:
+            files += [
+                path.join(dirpath, f)
+                for f in os.listdir(dirpath)
+                if path.isfile(path.join(dirpath, f))
+            ]
 
         roots = {
-                root.root: root for root in 
-                    (Root.from_file(f) for f in files)
+                root.root: root for root in
+                    (Root.read(f) for f in files)
                 if root is not None and root.root is not None
         }
 
         return Roots(roots)
 
-    def to_dir(self, filepath) -> None:
-        for root, root_obj in self._roots.items():
-            root_filename = f"{root}.json"
-            root_filepath = path.join(filepath, root_filename)
-            root_obj.to_file(root_filepath)
-
+    def write(self) -> None:
+        for _, root_obj in self._roots.items():
+            root_obj.write()
 
 
 ###############################################################################
@@ -231,6 +252,10 @@ def get_parser(parser_type):
 
     group.add_argument("--complete",
                        help="complete cmd line")
+
+    parser.add_argument("-g", "--use-global",
+                        help="create new roots in the GLOBAL dir",
+                        action="store_true")
 
     parser.add_argument("first", nargs='?', default="all")
     parser.add_argument("second", nargs='?')
@@ -326,8 +351,8 @@ def ensure_file(path):
 def write_config_files():
 
     # ensure all directories and files are present
-    ensure_dir(GOTO_DIR)
-    ensure_dir(ROOTS_DIR)
+    ensure_dir(LOCAL_GOTO_DIR)
+    ensure_dir(LOCAL_ROOTS_DIR)
 
     ensure_file(CONFIG_FILEPATH)
 
@@ -335,19 +360,6 @@ def write_config_files():
     configs = {"current_root": "goto"}
     save_configs(configs)
 
-    # write roots file
-    roots = Roots({
-        "goto": Root(
-            root="goto",
-            path="~/.config/goto",
-            defaults=[],
-            shortcuts={
-                "roots": "roots"
-            }
-        )
-    })
-    roots.to_dir(ROOTS_DIR)
-    
 
 def find_applicable_complete_options(args, roots, configs):
 
@@ -402,7 +414,7 @@ def main():
 
     # check setup mode
     if args.setup:
-        if path.isdir(GOTO_DIR):
+        if path.isdir(LOCAL_GOTO_DIR):
             print("aborting, configs already exist")
             sys.exit(1)
         else:
@@ -415,7 +427,7 @@ def main():
     # # # # # # # # # # # #
 
     configs = load_file(CONFIG_FILEPATH)
-    roots = Roots.from_dir(ROOTS_DIR)
+    roots = Roots.read(GLOBAL_ROOTS_DIR, LOCAL_ROOTS_DIR)
 
     #
     # Set op mode
@@ -455,10 +467,12 @@ def main():
     # create new root mode
     elif args.new:
         root = args.new[0]
-        new_root_filepath = path.join(ROOTS_DIR, f"{root}.json")
+
+        root_dir = GLOBAL_ROOTS_DIR if args.use_global else LOCAL_ROOTS_DIR
+        new_root_filepath = path.join(root_dir, f"{root}.json")
 
         if not path.isfile(new_root_filepath):
-            Root.empty(root).to_file(new_root_filepath)
+            Root.empty(root, new_root_filepath).write()
             edit_file(new_root_filepath)
             print("Writing new root {}".format(root))
         else:
