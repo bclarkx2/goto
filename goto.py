@@ -90,7 +90,7 @@ class Root(object):
         self.shortcuts = shortcuts
 
     @classmethod
-    def empty(cls, root="": str, config_filepath: str) -> "Root":
+    def empty(cls, root: str, config_filepath: str) -> "Root":
         root_obj = cls(
             root=root,
             path="",
