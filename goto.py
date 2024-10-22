@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-
-"""command line utility to navigate file structure using bookmarks
+"""command line utility to navigate file structure using bookmarks.
 
 goto is a tool that allows you to quickly move between directories.
 The basic workflow is as follows:
@@ -59,6 +58,7 @@ LOCAL_ROOTS_DIR = path.join(LOCAL_GOTO_DIR, "roots")
 # Classes                                                                     #
 ###############################################################################
 
+
 class ArgumentParserError(Exception):
     pass
 
@@ -116,12 +116,12 @@ class Root(object):
                 root = Root(**json.load(f))
                 root.config_filepath = filepath
                 return root
-        except Exception as e:
+        except Exception:
             return None
 
     def write(self) -> None:
         with open(self.config_filepath, 'w') as f:
-                json.dump(self, f, **json_args(True))
+            json.dump(self, f, **json_args(True))
 
 
 class Roots(object):
@@ -191,9 +191,9 @@ class Roots(object):
             ]
 
         roots = {
-                root.root: root for root in
-                    (Root.read(f) for f in files)
-                if root is not None and root.root is not None
+            root.root: root for root in
+            (Root.read(f) for f in files)
+            if root is not None and root.root is not None
         }
 
         return Roots(roots)
@@ -213,6 +213,7 @@ def json_args(use_dict: bool):
         "sort_keys": True,
         "indent": "\t"
     }
+
 
 def get_parser(parser_type):
 
@@ -280,7 +281,7 @@ def parameters_from_args(args, configs):
 
 def set_current_root(new_root, roots, configs):
 
-    current_root=roots.name(configs["current_root"])
+    current_root = roots.name(configs["current_root"])
 
     if new_root in roots:
         configs["current_root"] = new_root
@@ -507,7 +508,7 @@ def main():
 
         # if shortcut not resolved, print error and exit
         else:
-            print(f"Shortcut not found in {roots[root].root}")
+            print(f"Shortcut missing in {roots[root].root}")
             exit_code = 1
 
     # no mode selected, print help
