@@ -237,6 +237,10 @@ def get_parser(parser_type):
                        help="see available shortcuts for a root",
                        action="store_true")
 
+    group.add_argument("-r", "--roots",
+                       help="list roots",
+                       action="store_true")
+
     group.add_argument("-c", "--configs", "--config",
                        help="open config JSON",
                        action="store_true")
@@ -463,6 +467,11 @@ def main():
     elif args.all:
         all_shortcuts = all_print_information(args.first, roots, configs)
         print(all_shortcuts)
+
+    # print roots mode
+    elif args.roots:
+        for root in roots.roots():
+            print(root)
 
     # create new root mode
     elif args.new:
