@@ -1,15 +1,20 @@
 #!/bin/bash
 
-output=$(goto.py "$@")
+# Create output file to store goto.py path output.
+tmpfile="$(mktemp)"
 
-# expand tilde
-output="${output/#\~/$HOME}"
+# Pass temp file to goto.py so it can store the path to cd to 
+# there. Any other output will just write to stdout.
+goto.py --temp-file "${tmpfile}" "$@"
 
-# go to directory if possible
-if [[ -d "$output" ]] ; then 
-    cd $output
+# Pull results from tmpfile and remove tmpfile.
+path="$(cat "${tmpfile}")"
+rm "${tmpfile}"
 
-# else print output as error condition
-else
-    echo "$output"
+# Expand tilde in output.
+path="${path/#\~/$HOME}"
+
+# Go to directory if possible.
+if [[ -d "${path}" ]] ; then 
+    cd "${path}"
 fi

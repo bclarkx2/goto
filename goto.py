@@ -262,6 +262,10 @@ def get_parser(parser_type):
                         help="create new roots in the GLOBAL dir",
                         action="store_true")
 
+    parser.add_argument("-t", "--temp-file",
+                        help="temp file to write path to",
+                        action="store")
+
     parser.add_argument("first", nargs='?', default="all")
     parser.add_argument("second", nargs='?')
     return parser
@@ -300,6 +304,13 @@ def load_file(filepath):
     with open(filepath) as the_file:
         return json.load(the_file)
 
+
+def print_path(path, temp_file):
+    if temp_file:
+        with open(temp_file, 'w') as f:
+            f.write(path)
+    else:
+        print(path)
 
 def print_information(print_arg, roots, configs):
 
@@ -507,7 +518,7 @@ def main():
 
         # name of path to change to; print this so bash can cd to it
         if full_path:
-            print(full_path)
+            print_path(full_path, args.temp_file)
 
         # if shortcut not resolved, print error and exit
         else:
