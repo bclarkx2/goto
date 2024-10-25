@@ -472,7 +472,10 @@ def main():
     # print roots mode
     elif args.roots:
         for root in roots.roots():
-            print(root)
+            if root == configs["current_root"]:
+                print(f"*{root}")
+            else:
+                print(root)
 
     # create new root mode
     elif args.new:
